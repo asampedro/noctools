@@ -1,0 +1,7 @@
+.env
+chromedriver.exe
+alerts.log
+canales.csv
+TEST/
+.~lock.*#
+CONTEXT.md
