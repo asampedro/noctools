@@ -1,66 +1,68 @@
 # NOC Alerts Tool
 
-## Descripción
+> 🌐 [Español](README_ES.md)
 
-Herramienta de automatización para el equipo NOC. Consulta alertas críticas de NewRelic via Noctools, cruza con tickets de Jira y genera mensajes formateados para escalar por Slack y Telegram. Incluye registro de escalamientos con detalle de servicio y canal al cual se escala.
+## Description
+
+Automation tool for the NOC team. Queries critical New Relic alerts via Noctools, cross-references with Jira tickets, and generates formatted messages for escalation via Slack and Telegram. Includes escalation logging with service and channel details.
 
 ---
 
-## Requisitos
+## Requirements
 
 - Python 3.8+
-- Google Chrome instalado
-- Acceso a Noctools
-- Bot Token de Slack configurado (por organización o por workspace)
-- Bot Token de Telegram configurado
-- `pip install pip_system_certs` (requerido en entornos con proxy corporativo que intercepta HTTPS)
+- Google Chrome installed
+- Access to Noctools
+- Slack Bot Token configured (per organization or per workspace)
+- Telegram Bot Token configured
+- `pip install pip_system_certs` (required in environments with a corporate proxy that intercepts HTTPS)
 
-> ⚠️ En entornos corporativos con proxy que intercepta tráfico HTTPS (ej: proxy corporativo, firewall), las llamadas a la API de Slack pueden fallar con `SSL: CERTIFICATE_VERIFY_FAILED`. Instalar `pip_system_certs` para que Python use el almacén de certificados de Windows en lugar de su propio almacén.
+> ⚠️ In corporate environments with a proxy that intercepts HTTPS traffic (e.g., corporate proxy, firewall), Slack API calls may fail with `SSL: CERTIFICATE_VERIFY_FAILED`. Install `pip_system_certs` so Python uses the Windows certificate store instead of its own.
 
 ---
 
-## Archivos del proyecto
+## Project Files
 
-| Archivo | Descripción |
+| File | Description |
 |---|---|
-| `noctools_alerts.py` | Script principal |
-| `.env` | Credenciales y configuración (no subir a GitHub) |
-| `canales.csv` | Base de mapeo de servicios → canales Slack y grupos Telegram (no subir a GitHub) |
-| `alerts.log` | Registro de escalados (no subir a GitHub) |
-| `chromedriver.exe` | Driver para Selenium (no subir a GitHub) |
+| `noctools_alerts.py` | Main script |
+| `.env` | Credentials and configuration (do not upload to GitHub) |
+| `canales.csv` | Service-to-Slack-channel and Telegram-group mapping (do not upload to GitHub) |
+| `alerts.log` | Escalation log (do not upload to GitHub) |
+| `chromedriver.exe` | Selenium driver (do not upload to GitHub) |
 
-> ⚠️ `.env`, `canales.csv`, `alerts.log` y `chromedriver.exe` están excluidos del repositorio via `.gitignore`.
+> ⚠️ `.env`, `canales.csv`, `alerts.log`, and `chromedriver.exe` are excluded from the repository via `.gitignore`.
 
 ---
 
-## Instalación
+## Installation
 
-1. Clonar el repositorio
+1. Clone the repository
 
 ```bash
 git clone https://github.com/asampedro/noctools.git
 cd noctools
 ```
 
-2. Instalar dependencias
+2. Install dependencies
 
 ```bash
 pip install requests python-dotenv selenium webdriver-manager pip_system_certs
 ```
 
-3. (Opcional) Descargar ChromeDriver compatible con tu versión de Chrome desde https://googlechromelabs.github.io/chrome-for-testing/ y colocar el `chromedriver.exe` en la carpeta del proyecto. Si no se encuentra o la versión no coincide con la de Chrome instalada, el script descarga automáticamente la versión compatible via `webdriver-manager` y la instala en el directorio del proyecto, sobrescribiendo la versión anterior.
+3. (Optional) Download a ChromeDriver compatible with your Chrome version from https://googlechromelabs.github.io/chrome-for-testing/ and place `chromedriver.exe` in the project folder. If not found or the version does not match the installed Chrome, the script automatically downloads the compatible version via `webdriver-manager` and installs it in the project directory, overwriting the previous one.
 
-4. Copiar `.env.example` a `.env` y completar los valores
+4. Copy `.env.example` to `.env` and fill in the values
 
 ---
 
-## Configuración
+## Configuration
 
-### `.env` — Credenciales y configuración
+### `.env` — Credentials and configuration
 
-Todas las variables se dividen en dos grupos: **obligatorias** (sin defaults en el código) y **opcionales** (con defaults incluidos).
+All variables are divided into two groups: **required** (no defaults in the code) and **optional** (with built-in defaults).
 
-#### Cookies de sesión Noctools
+#### Noctools session cookies
 
 ```
 COOKIE_SESSIONID=...
@@ -73,17 +75,17 @@ COOKIE_CF_BM=...
 
 #### Slack Bot Tokens
 
-Los tokens se nombran dinámicamente: `SLACK_BOT_TOKEN_{NOMBRE}` donde `{NOMBRE}` es el valor de la columna `organizacion` o `workspace` del CSV (en mayúsculas). El nombre debe ser alfanumérico, sin espacios ni caracteres especiales.
+Tokens are named dynamically: `SLACK_BOT_TOKEN_{NAME}` where `{NAME}` is the value of the `organizacion` or `workspace` column from the CSV (in uppercase). The name must be alphanumeric, with no spaces or special characters.
 
 ```
-# Token de organización (compartido por todos los workspaces dentro de la org)
-SLACK_BOT_TOKEN_MIORG=xoxb-...
+# Organization token (shared by all workspaces within the org)
+SLACK_BOT_TOKEN_MYORG=xoxb-...
 
-# Token de workspace standalone (workspace fuera de una organización)
-SLACK_BOT_TOKEN_MIWS=xoxb-...
+# Standalone workspace token (workspace outside an organization)
+SLACK_BOT_TOKEN_MYWS=xoxb-...
 ```
 
-> Si la app de Slack está instalada a nivel de organización, un solo token funciona para todos los workspaces dentro de esa org. Solo se define `SLACK_BOT_TOKEN_{ORG}` y en el CSV se completa la columna `organizacion`. Si un workspace está fuera de la organización, se define `SLACK_BOT_TOKEN_{WORKSPACE}` y en el CSV la columna `organizacion` queda vacía.
+> If the Slack app is installed at the organization level, a single token works for all workspaces within that org. Just define `SLACK_BOT_TOKEN_{ORG}` and fill the `organizacion` column in the CSV. If a workspace is outside the organization, define `SLACK_BOT_TOKEN_{WORKSPACE}` and leave the `organizacion` column empty in the CSV.
 
 #### Telegram Bot Token
 
@@ -91,11 +93,11 @@ SLACK_BOT_TOKEN_MIWS=xoxb-...
 TELEGRAM_BOT_TOKEN=123456789:ABCdef...
 ```
 
-> El bot debe ser miembro de los grupos a los que va a enviar mensajes. Los grupos privados tienen IDs negativos (ej. `-1001234567890`).
+> The bot must be a member of the groups it sends messages to. Private groups have negative IDs (e.g., `-1001234567890`).
 
-#### URLs internas (OBLIGATORIAS)
+#### Internal URLs (REQUIRED)
 
-Estas URLs no tienen defaults en el código y deben estar si o si en `.env`. Si falta alguna, el script se detiene al iniciar indicando cuáles faltan.
+These URLs have no defaults in the code and must be present in `.env`. If any are missing, the script stops on startup indicating which ones are missing.
 
 ```
 URL_ALERTS_NO_ACK=https://noctools.internal/alerts/getAlerts/newrelic/0
@@ -106,249 +108,247 @@ URL_NOC_DUTY_INCIDENTES=https://noctools.internal/nocduty/incjson
 URL_JIRA_BROWSE=https://jira.internal/browse
 ```
 
-#### Parámetros opcionales (con defaults incluidos en el código)
+#### Optional parameters (with built-in defaults)
 
-Si no se definen, el script usa los valores por defecto mostrados a continuación:
+If not defined, the script uses the following default values:
 
-| Variable | Default | Descripción |
+| Variable | Default | Description |
 |---|---|---|
-| `SLACK_API` | `https://slack.com/api/chat.postMessage` | Endpoint de la API de Slack |
-| `SLACK_SUBDOMAIN_{WORKSPACE}` | — | Subdominio de Slack para permalinks en Telegram (uno por workspace) |
-| `TELEGRAM_API` | `https://api.telegram.org` | Endpoint de la API de Telegram |
-| `USER_AGENT` | `Mozilla/5.0 (Windows NT 10.0; Win64; x64) ... Chrome/150.0.0.0 Safari/537.36` | User-Agent para requests HTTP |
-| `ACCEPT_LANGUAGE` | `es-419,es;q=0.9,en;q=0.8` | Header accept-language |
-| `TICKETS_FILTER` | `RA_FA_A_TA_O_I` | Filtro del path del endpoint de tickets Jira |
-| `TICKETS_LOOKBACK_DAYS` | `2` | Días hacia atrás para consultar tickets (fallback de NocDuty) |
-| `SELENIUM_TIMEOUT` | `180` | Timeout de Selenium en segundos (3 min) |
-| `SELENIUM_POST_LOGIN_SLEEP` | `3` | Segundos de espera después del login |
-| `REQUESTS_TIMEOUT` | `15` | Timeout para requests a Noctools (segundos) |
-| `SLACK_TIMEOUT` | `10` | Timeout para requests a Slack API (segundos) |
-| `TELEGRAM_TIMEOUT` | `10` | Timeout para requests a Telegram API (segundos) |
-| `DEFAULT_WORKSPACE` | `MYDEFAULT` | Fallback de workspace si el CSV no trae el campo |
-| `DEFAULT_ORGANIZATION` | — | Fallback de organización si el CSV no trae el campo |
-| `TELEGRAM_START_HOUR` | `18` | Hora de inicio del horario de envío de Telegram |
-| `TELEGRAM_END_HOUR` | `0` | Hora de fin del horario de envío de Telegram |
-| `TELEGRAM_TIMEZONE` | `UTC` | Zona horaria para el chequeo de horario de Telegram y saludo dinámico |
+| `SLACK_API` | `https://slack.com/api/chat.postMessage` | Slack API endpoint |
+| `SLACK_SUBDOMAIN_{WORKSPACE}` | — | Slack subdomain for Telegram permalinks (one per workspace) |
+| `TELEGRAM_API` | `https://api.telegram.org` | Telegram API endpoint |
+| `USER_AGENT` | `Mozilla/5.0 (Windows NT 10.0; Win64; x64) ... Chrome/150.0.0.0 Safari/537.36` | User-Agent for HTTP requests |
+| `ACCEPT_LANGUAGE` | `es-419,es;q=0.9,en;q=0.8` | Accept-Language header |
+| `TICKETS_FILTER` | `RA_FA_A_TA_O_I` | Path filter for the Jira tickets endpoint |
+| `TICKETS_LOOKBACK_DAYS` | `2` | Days to look back for tickets (NocDuty fallback) |
+| `SELENIUM_TIMEOUT` | `180` | Selenium timeout in seconds (3 min) |
+| `SELENIUM_POST_LOGIN_SLEEP` | `3` | Seconds to wait after login |
+| `REQUESTS_TIMEOUT` | `15` | Timeout for Noctools requests (seconds) |
+| `SLACK_TIMEOUT` | `10` | Timeout for Slack API requests (seconds) |
+| `TELEGRAM_TIMEOUT` | `10` | Timeout for Telegram API requests (seconds) |
+| `DEFAULT_WORKSPACE` | `MYDEFAULT` | Workspace fallback if the CSV does not provide one |
+| `DEFAULT_ORGANIZATION` | — | Organization fallback if the CSV does not provide one |
+| `TELEGRAM_START_HOUR` | `18` | Start hour for Telegram sending window |
+| `TELEGRAM_END_HOUR` | `0` | End hour for Telegram sending window |
+| `TELEGRAM_TIMEZONE` | `UTC` | Timezone for Telegram schedule check and dynamic greeting |
 
-> El horario de Telegram soporta cruce de medianoche (ej: `18` a `0` = de 18:00 a 00:00).
+> The Telegram schedule supports midnight crossing (e.g., `18` to `0` = 18:00 to 00:00).
 
-> Los subdominios de Slack se nombran dinámicamente: `SLACK_SUBDOMAIN_{WORKSPACE}` donde `{WORKSPACE}` es el valor de la columna `workspace` del CSV (en mayúsculas). El subdominio es la parte que va antes de `.slack.com` en la URL del workspace. Ejemplo: `SLACK_SUBDOMAIN_MIWS=mi-subdominio` → `https://mi-subdominio.slack.com/...`. Si no están configurados, el mensaje de Telegram se envía igual pero sin el link de Slack, y el script avisa por consola.
+> Slack subdomains are named dynamically: `SLACK_SUBDOMAIN_{WORKSPACE}` where `{WORKSPACE}` is the value of the `workspace` column from the CSV (in uppercase). The subdomain is the part before `.slack.com` in the workspace URL. Example: `SLACK_SUBDOMAIN_MYWS=my-subdomain` → `https://my-subdomain.slack.com/...`. If not configured, the Telegram message is still sent but without the Slack link, and the script prints a warning to the console.
 
-### `canales.csv` — Mapeo de servicios a canales de Slack y grupos de Telegram
+### `canales.csv` — Service-to-channel mapping
 
 ```
 servicio,canal_nombre,canal_id,workspace,organizacion,telegram_group_id
-example-service,team-channel-1,CXXXXXXXXX,MYDEFAULT,MIORG,@noc_alerts
+example-service,team-channel-1,CXXXXXXXXX,MYDEFAULT,MYORG,@noc_alerts
 fraud-example,ext-noc-fraud-support,CXXXXXXXXX,MYEXTERNALS,,
 new-service,new-team-channel,CXXXXXXXXX,NEWWS,OTHERORG,
 ```
 
-> Los campos `workspace` y `organizacion` determinan qué bot token se usa para enviar el mensaje a Slack. La organización pondera sobre el workspace: si `organizacion` tiene valor, se busca `SLACK_BOT_TOKEN_{ORGANIZACION}`. Si está vacía, se busca `SLACK_BOT_TOKEN_{WORKSPACE}`.
+> The `workspace` and `organizacion` fields determine which bot token is used to send the Slack message. Organization takes precedence over workspace: if `organizacion` has a value, `SLACK_BOT_TOKEN_{ORGANIZACION}` is used. If empty, `SLACK_BOT_TOKEN_{WORKSPACE}` is used.
 
-> Si ambos campos están vacíos, el script usa los defaults (`DEFAULT_ORGANIZATION` y/o `DEFAULT_WORKSPACE`) e informa que falta completar el CSV.
+> If both fields are empty, the script uses the defaults (`DEFAULT_ORGANIZATION` and/or `DEFAULT_WORKSPACE`) and reports that the CSV is incomplete.
 
-> El campo `telegram_group_id` es opcional. Si está vacío, el script no envía a Telegram para ese servicio. Los grupos privados de Telegram tienen IDs negativos (ej. `-1001234567890`).
+> The `telegram_group_id` field is optional. If empty, the script does not send to Telegram for that service. Private Telegram groups have negative IDs (e.g., `-1001234567890`).
 
-> El archivo se lee con `encoding="utf-8-sig"` para manejar archivos con o sin BOM (común en Windows).
+> The file is read with `encoding="utf-8-sig"` to handle files with or without BOM (common on Windows).
 
 ---
 
-## Parámetros
+## Parameters
 
-### Modo alertas
+### Alerts mode
 
-| Parámetro | Descripción | Compatible con |
+| Parameter | Description | Compatible with |
 |---|---|---|
-| `showack` | Muestra alarmas con acknowledged | `send` |
-| `send` | Envía mensajes por Slack (siempre) y Telegram (si está en horario) | `showack`, `log` |
-| `log` | Registra escalados en alerts.log | `send` |
+| `showack` | Shows acknowledged alarms | `send` |
+| `send` | Sends messages via Slack (always) and Telegram (if in schedule) | `showack`, `log` |
+| `log` | Logs escalations to alerts.log | `send` |
 
-> ⚠️ El parámetro `log` no puede usarse junto con `showack`.
+> ⚠️ The `log` parameter cannot be used together with `showack`.
 
-> En modo `send`, Slack envía siempre sin restricción horaria. Telegram envía solo si el envío a Slack fue exitoso (mensaje principal + hilo), el servicio tiene `telegram_group_id` configurado en el CSV y la hora actual está dentro del rango `TELEGRAM_START_HOUR`-`TELEGRAM_END_HOUR`.
+> In `send` mode, Slack always sends without time restrictions. Telegram sends only if Slack delivery was successful (main message + thread), the service has `telegram_group_id` configured in the CSV, and the current time is within the `TELEGRAM_START_HOUR`-`TELEGRAM_END_HOUR` range.
 
-### Modo test
+### Test mode
 
-| Parámetro | Descripción |
+| Parameter | Description |
 |---|---|
-| `test` | Envía un mensaje de prueba a un canal de Slack o grupo de Telegram |
+| `test` | Sends a test message to a Slack channel or Telegram group |
 
-**Sintaxis:**
+**Syntax:**
 
 ```bash
-# Slack (default, sin flag)
-python noctools_alerts.py test "mensaje" "channel_id" "workspace_o_organizacion"
+# Slack (default, no flag)
+python noctools_alerts.py test "message" "channel_id" "workspace_or_organization"
 
-# Slack (con flag explícito)
-python noctools_alerts.py test --slack "mensaje" "channel_id" "workspace_o_organizacion"
+# Slack (explicit flag)
+python noctools_alerts.py test --slack "message" "channel_id" "workspace_or_organization"
 
 # Telegram
-python noctools_alerts.py test --telegram "mensaje" "chat_id"
+python noctools_alerts.py test --telegram "message" "chat_id"
 ```
 
-**Ejemplos:**
+**Examples:**
 
 ```bash
-python noctools_alerts.py test "mensaje de prueba" "CXXXXXXXXX" "MIORG"
-python noctools_alerts.py test --slack "mensaje de prueba" "CXXXXXXXXX" "MIORG"
-python noctools_alerts.py test --telegram "mensaje de prueba" "-1001234567890"
+python noctools_alerts.py test "test message" "CXXXXXXXXX" "MYORG"
+python noctools_alerts.py test --slack "test message" "CXXXXXXXXX" "MYORG"
+python noctools_alerts.py test --telegram "test message" "-1001234567890"
 ```
 
-El modo `test` envía un mensaje simple (sin hilo) a Slack o Telegram. Acepta cualquier `channel_id` o `chat_id` sin importar si está en `canales.csv`. El mensaje soporta formato mrkdwn de Slack (`*negrita*`, `@mentions`) o Markdown de Telegram (`*negrita*`, `@mentions`).
+Test mode sends a simple message (no thread) to Slack or Telegram. It accepts any `channel_id` or `chat_id` regardless of whether it is in `canales.csv`. The message supports Slack mrkdwn format (`*bold*`, `@mentions`) or Telegram Markdown (`*bold*`, `@mentions`).
 
-**Validación contra el CSV:**
+**CSV validation:**
 
-- **Slack:** busca `channel_id` + `workspace` juntos en el CSV
-  - Si encuentra: `Enviando TEST Message al canal 'nombre_del_canal' en workspace 'MYDEFAULT'`
-  - Si no encuentra: `El canal a testear en el workspace 'MYDEFAULT' con ID 'CXXXXXXXXX' no se encuentra en la base`
-- **Telegram:** busca `chat_id` en el CSV
-  - Si encuentra: `Enviando TEST Message al grupo 'nombre_del_grupo' en Telegram`
-  - Si no encuentra: `El grupo a testear con ID '-1001234567890' no se encuentra en la base`
+- **Slack:** looks up `channel_id` + `workspace` together in the CSV
+  - Found: `Enviando TEST Message al canal 'channel_name' en workspace 'MYDEFAULT'`
+  - Not found: `El canal a testear en el workspace 'MYDEFAULT' con ID 'CXXXXXXXXX' no se encuentra en la base`
+- **Telegram:** looks up `chat_id` in the CSV
+  - Found: `Enviando TEST Message al grupo 'group_name' en Telegram`
+  - Not found: `El grupo a testear con ID '-1001234567890' no se encuentra en la base`
 
-En ambos casos el mensaje se envía.
+In both cases the message is sent.
 
-**Resultado del envío:**
+**Send result:**
 
-- Si funciona: `✅ Mensaje de TEST enviado correctamente`
-- Si falla: `❌ Error enviando mensaje: {error}` (Slack) o `❌ Error enviando mensaje a Telegram: {error}` (Telegram)
+- Success: `✅ Mensaje de TEST enviado correctamente`
+- Failure: `❌ Error enviando mensaje: {error}` (Slack) or `❌ Error enviando mensaje a Telegram: {error}` (Telegram)
 
-> El modo `test` no consulta las URLs internas de Noctools, por lo que no requiere las URLs obligatorias del `.env`.
+> Test mode does not query the internal Noctools URLs, so it does not require the mandatory URLs from `.env`.
 
 ---
 
-## Validación de envío (`send`)
+## Send validation (`send`)
 
-Antes de enviar un mensaje a Slack, el script valida que estén presentes:
-- Nombre de servicio
-- Canal completo (nombre, id, workspace u organización)
-- Ticket Jira
-- Critical Alert Events (descripción del incidente)
+Before sending a message to Slack, the script validates that the following are present:
+- Service name
+- Complete channel (name, id, workspace or organization)
+- Jira ticket
+- Critical Alert Events (incident description)
 - Links: App Overview, Errors, Issues
 - Slack Bot Token
 
-Si algo falta, no envía a Slack ni a Telegram y detalla qué campos faltan.
+If anything is missing, it does not send to Slack or Telegram and details which fields are missing.
 
-El envío a Slack se considera exitoso solo cuando tanto el mensaje principal como el hilo se envían correctamente. Si cualquiera de los dos falla, Telegram no se envía.
+Slack delivery is considered successful only when both the main message and the thread are sent successfully. If either fails, Telegram is not sent.
 
 ---
 
-## Obtención del ticket de Jira
+## Jira ticket retrieval
 
-El ticket de Jira se obtiene en dos pasos:
+The Jira ticket is obtained in two steps:
 
-1. **Fuente principal:** el JSON de alertas incluye el campo `"ticket"` directamente en cada servicio. El script lo lee de ahí.
-2. **Fallback (NocDuty):** el script consulta el endpoint de NocDuty (`URL_NOC_DUTY_INCIDENTES`) **solo si ningún servicio crítico tiene el campo `"ticket"`**, lo que indica que el JSON está fallando. La búsqueda en NocDuty es case-insensitive por nombre de servicio.
+1. **Primary source:** the alert JSON includes the `"ticket"` field directly in each service. The script reads it from there.
+2. **Fallback (NocDuty):** the script queries the NocDuty endpoint (`URL_NOC_DUTY_INCIDENTES`) **only if no critical service has the `"ticket"` field**, which indicates the JSON is failing. The NocDuty search is case-insensitive by service name.
 
-### Lógica de fallback
+### Fallback logic
 
-El fallback a NocDuty no se hace por servicio individual, sino que se evalúa globalmente:
+The NocDuty fallback is not done per individual service, but evaluated globally:
 
-| Escenario | Comportamiento |
+| Scenario | Behavior |
 |---|---|
-| Todos los servicios tienen ticket en el JSON | El JSON funciona. No se consulta NocDuty. Muestra: `🎫 Tickets obtenidos del JSON de alertas.` |
-| Algunos servicios tienen ticket, otros no | El JSON funciona. Los que no tienen ticket aún no fueron creados en Jira. No se consulta NocDuty. El ticket se muestra como `Ticket de Jira no creado` |
-| Ningún servicio tiene ticket en el JSON | El JSON está fallando. Se consulta NocDuty. Muestra: `🎫 Consultando tickets Jira (fallback)...` |
+| All services have ticket in JSON | JSON is working. NocDuty is not queried. Shows: `🎫 Tickets obtenidos del JSON de alertas.` |
+| Some services have ticket, others don't | JSON is working. Those without a ticket simply haven't been created in Jira yet. NocDuty is not queried (it wouldn't have them either). Ticket shows as `Ticket de Jira no creado` |
+| No service has ticket in JSON | JSON is failing. NocDuty is queried as fallback. Shows: `🎫 Consultando tickets Jira (fallback)...` |
 
-**Resultado del fallback (cuando se consulta NocDuty):**
+**Fallback results (when NocDuty is queried):**
 
-| Resultado | Comportamiento |
+| Result | Behavior |
 |---|---|
-| NocDuty responde y encuentra tickets | Se usan los tickets. Muestra: `ℹ️ Ticket no encontrado en alertas. Obtenido via NocDuty: {ticket}` |
-| NocDuty no responde | Muestra: `⚠️ NocDuty no disponible. Falló la consulta del ticket de Jira.` El ticket se muestra como `Falló la consulta del ticket de Jira` |
+| NocDuty responds and finds tickets | Tickets are used. Shows: `ℹ️ Ticket no encontrado en alertas. Obtenido via NocDuty: {ticket}` |
+| NocDuty does not respond | Shows: `⚠️ NocDuty no disponible. Falló la consulta del ticket de Jira.` Ticket shows as `Falló la consulta del ticket de Jira` |
 
 ---
 
----
+### NocDuty filter codes
 
-### Códigos de filtro de NocDuty
+The `TICKETS_FILTER` parameter controls which ticket states are included in the fallback query. Each code represents a state in the ticket lifecycle:
 
-El parámetro `TICKETS_FILTER` controla qué estados de ticket se incluyen en la consulta del fallback. Cada código representa un estado del ciclo de vida del ticket:
-
-| Código | Estado | Descripción |
+| Code | State | Description |
 |---|---|---|
-| `R` | Creating | Se está creando el ticket |
-| `I` | Create with fails | Algo falló durante la creación del ticket |
-| `O` | Opened | Ticket abierto |
-| `A` | Acknowledged | Ticket con ACK |
-| `RA` | Running ACK | Se está procesando el ACK |
-| `FA` | ACK with fails | Algo falló durante el ACK del ticket |
-| `TA` | ACK Triggered | Se inició el proceso de ACK |
-| `C` | Closed | Ticket cerrado |
-| `RC` | Closing | Ticket en proceso de cerrado |
-| `FC` | Closed with fails | Ticket cerrado pero ocurrieron errores en el proceso de cerrado |
+| `R` | Creating | Ticket is being created |
+| `I` | Create with fails | Something failed during ticket creation |
+| `O` | Opened | Ticket is open |
+| `A` | Acknowledged | Ticket has been acknowledged |
+| `RA` | Running ACK | ACK is being processed |
+| `FA` | ACK with fails | Something failed during ticket ACK |
+| `TA` | ACK Triggered | ACK process has been initiated |
+| `C` | Closed | Ticket is closed |
+| `RC` | Closing | Ticket is being closed |
+| `FC` | Closed with fails | Ticket is closed but errors occurred during closing |
 
-> El filtro por defecto `RA_FA_A_TA_O_I` incluye todos los tickets que no estén cerrados ni en proceso de creación pura. Los códigos se concatenan con `_` como separador.
+> The default filter `RA_FA_A_TA_O_I` includes all tickets that are not closed and not in pure creation. Codes are concatenated with `_` as separator.
 
-> `TICKETS_LOOKBACK_DAYS` controla cuántos días hacia atrás se consultan los tickets. Por defecto `2`, ya que es muy improbable que un ticket esté más de 24 horas abierto.
-
----
-
-## Deduplicación de Critical Alert Events
-
-`extract_incident_description` deduplica descripciones repetidas en `long_plugin_output`. Si una misma descripción aparece múltiples veces, se muestra una sola vez con un contador `(xN)`. Esto evita que mensajes con alertas duplicadas superen el límite de tamaño de Slack.
+> `TICKETS_LOOKBACK_DAYS` controls how many days back to query tickets. Default `2`, since it is very unlikely for a ticket to remain open for more than 24 hours.
 
 ---
 
-## Envío a Telegram (`send`)
+## Critical Alert Events deduplication
 
-En modo `send`, después de enviar a Slack, el script intenta enviar a Telegram para cada servicio **solo si el envío a Slack fue exitoso** (mensaje principal + hilo):
+`extract_incident_description` deduplicates repeated descriptions in `long_plugin_output`. If the same description appears multiple times, it is shown once with a counter `(xN)`. This prevents messages with duplicate alerts from exceeding the Slack size limit.
 
-| Condición | Comportamiento |
+---
+
+## Telegram delivery (`send`)
+
+In `send` mode, after sending to Slack, the script attempts to send to Telegram for each service **only if the Slack delivery was successful** (main message + thread):
+
+| Condition | Behavior |
 |---|---|
-| Envío a Slack falló | `⚠️ Telegram no enviado: el envío a Slack falló.` |
-| `telegram_group_id` vacío en CSV | `⚠️ Telegram: group_id no configurado en la base para este servicio. Mensaje no enviado.` |
-| Fuera de horario | `⚠️ Telegram fuera de horario (18:00-0:00 America/Argentina/Buenos_Aires). Mensaje no enviado.` |
-| `TELEGRAM_BOT_TOKEN` no configurado | `❌ Token de Telegram no disponible. Verificá TELEGRAM_BOT_TOKEN en .env` |
-| Envío exitoso | `✅ Enviado correctamente a Telegram {chat_id}` |
+| Slack delivery failed | `⚠️ Telegram no enviado: el envío a Slack falló.` |
+| `telegram_group_id` empty in CSV | `⚠️ Telegram: group_id no configurado en la base para este servicio. Mensaje no enviado.` |
+| Outside schedule | `⚠️ Telegram fuera de horario (18:00-0:00 UTC). Mensaje no enviado.` |
+| `TELEGRAM_BOT_TOKEN` not configured | `❌ Token de Telegram no disponible. Verificá TELEGRAM_BOT_TOKEN en .env` |
+| Successful delivery | `✅ Enviado correctamente a Telegram {chat_id}` |
 
-> El horario de Telegram soporta cruce de medianoche. Ejemplos válidos: `18` a `0` (18:00-00:00), `22` a `2` (22:00-02:00).
+> The Telegram schedule supports midnight crossing. Valid examples: `18` to `0` (18:00-00:00), `22` to `2` (22:00-02:00).
 
-### Permalink de Slack en Telegram
+### Slack permalink in Telegram
 
-Cuando el envío a Slack es exitoso, el script construye un permalink al mensaje principal de Slack y lo incluye como último link en el mensaje de Telegram (`💬 [Ver en Slack](url)`). El permalink se arma con el subdominio del workspace (`SLACK_SUBDOMAIN_{WORKSPACE}`), el `channel_id` y el `ts` del mensaje:
+When Slack delivery is successful, the script constructs a permalink to the main Slack message and includes it as the last link in the Telegram message (`💬 [Ver en Slack](url)`). The permalink is built using the workspace subdomain (`SLACK_SUBDOMAIN_{WORKSPACE}`), the `channel_id`, and the message `ts`:
 
 ```
-https://{subdominio}.slack.com/archives/{channel_id}/p{ts_sin_punto}
+https://{subdomain}.slack.com/archives/{channel_id}/p{ts_without_dot}
 ```
 
-Si el subdominio del workspace no está configurado en `.env`, el mensaje de Telegram se envía igual pero sin el link de Slack, y el script avisa por consola: `⚠️ No se pudo generar el link de Slack: subdominio no configurado para workspace '...'`
+If the workspace subdomain is not configured in `.env`, the Telegram message is still sent but without the Slack link, and the script prints a warning: `⚠️ No se pudo generar el link de Slack: subdominio no configurado para workspace '...'`
 
-### Saludo dinámico
+### Dynamic greeting
 
-El saludo del mensaje (en Slack, Telegram y consola) varía según la hora actual (usando `TELEGRAM_TIMEZONE`):
+The message greeting (in Slack, Telegram, and console) varies based on the current time (using `TELEGRAM_TIMEZONE`):
 
-| Horario | Saludo |
+| Time range | Greeting |
 |---|---|
 | 18:00 - 04:59 | `Estimados, buenas noches, los molesto...` |
 | 05:00 - 11:59 | `Estimados, buenos dias, los molesto...` |
 | 12:00 - 17:59 | `Estimados, buenas tardes, los molesto...` |
 
-> El saludo se calcula una vez por ejecución usando `get_greeting()` y respeta `TELEGRAM_TIMEZONE`. El rango de "buenas noches" cruza medianoche (18→05). El saludo es independiente del horario de envío de Telegram.
+> The greeting is calculated once per execution using `get_greeting()` and respects `TELEGRAM_TIMEZONE`. The "buenas noches" range crosses midnight (18→05). The greeting is independent of the Telegram sending schedule.
 
 ---
 
-## Log condicional (`log`)
+## Conditional logging (`log`)
 
-- Si `send=True` y falló el envío a Slack (mensaje principal o hilo) → no loguea, muestra error
-- Si el servicio no está en CSV → no loguea, muestra error
-- Si falta Ticket Jira → no loguea, muestra error
-- Si `send=False` y `log=True` → loguea normalmente si hay canal y ticket
+- If `send=True` and Slack delivery failed (main message or thread) → no log, shows error
+- If the service is not in the CSV → no log, shows error
+- If Jira ticket is missing → no log, shows error
+- If `send=False` and `log=True` → logs normally if channel and ticket are present
 
-> El log registra escalamientos a Slack. Telegram no se loguea.
-
----
-
-## Renovación de cookies
-
-El script verifica si las cookies están vencidas chequeando **dos endpoints**: alertas (`URL_ALERTS_NO_ACK`) y tickets de NocDuty (`build_tickets_url()`). Si cualquiera devuelve login HTML o redirección, dispara Selenium para renovar.
-
-Al renovar, Selenium abre Chrome automáticamente para que el usuario inicie sesión en Noctools. Las cookies se actualizan solas en el `.env`, incluyendo `CF_AppSession`.
-
-El script busca `chromedriver.exe` local primero. Si no lo encuentra, o si la versión local es incompatible con la versión instalada de Chrome, descarga automáticamente la versión compatible via `webdriver-manager` y la instala en el directorio del proyecto sobrescribiendo la versión anterior. El usuario no necesita actualizar el `chromedriver.exe` manualmente cuando Chrome se actualiza.
+> The log records Slack escalations. Telegram is not logged.
 
 ---
 
-## Uso
+## Cookie renewal
+
+The script checks if cookies are expired by verifying **two endpoints**: alerts (`URL_ALERTS_NO_ACK`) and NocDuty tickets (`build_tickets_url()`). If either returns login HTML or a redirect, it triggers Selenium to renew.
+
+When renewing, Selenium opens Chrome automatically for the user to log in to Noctools. Cookies are updated automatically in `.env`, including `CF_AppSession`.
+
+The script looks for `chromedriver.exe` locally first. If not found, or if the local version is incompatible with the installed Chrome version, it automatically downloads the compatible version via `webdriver-manager` and installs it in the project directory, overwriting the previous one. The user does not need to update `chromedriver.exe` manually when Chrome updates.
+
+---
+
+## Usage
 
 ### `python noctools_alerts.py`
 
@@ -372,7 +372,7 @@ El script busca `chromedriver.exe` local primero. Si no lo encuentra, o si la ve
 │  Ticket Jira: NOC-000001
 │  En Database: ✅ Sí
 │  Workspace:    MYDEFAULT
-│  Organización: MIORG
+│  Organización: MYORG
 │  Telegram:     @noc_alerts
 └──────────────────────────────────────────────────────────
 
@@ -411,7 +411,7 @@ Estimados, buenas tardes, los molesto porque vemos alertada la app *example-serv
 ------------------------------------------------------------
 ```
 
-Si Slack falla (Telegram no se envía):
+If Slack fails (Telegram is not sent):
 
 ```
 📤 Enviando a Slack #team-channel-1 [MYDEFAULT/MIORG]...
@@ -419,7 +419,7 @@ Si Slack falla (Telegram no se envía):
 ⚠️  Telegram no enviado: el envío a Slack falló.
 ```
 
-Si Telegram no tiene group_id configurado:
+If Telegram has no group_id configured:
 
 ```
 📤 Enviando a Slack #team-channel-1 [MYDEFAULT/MIORG]...
@@ -428,16 +428,16 @@ Si Telegram no tiene group_id configurado:
 ⚠️  Telegram: group_id no configurado en la base para este servicio. Mensaje no enviado.
 ```
 
-Si Telegram está fuera de horario:
+If Telegram is outside schedule:
 
 ```
 📤 Enviando a Slack #team-channel-1 [MYDEFAULT/MIORG]...
 ✅ Enviado correctamente a Slack #team-channel-1 [MYDEFAULT/MIORG]
 📤 Enviando a Telegram @noc_alerts...
-⚠️  Telegram fuera de horario (18:00-0:00 America/Argentina/Buenos_Aires). Mensaje no enviado.
+⚠️  Telegram fuera de horario (18:00-0:00 UTC). Mensaje no enviado.
 ```
 
-Si el subdominio de Slack no está configurado (el mensaje de Telegram se envía sin el link):
+If the Slack subdomain is not configured (Telegram message is sent without the link):
 
 ```
 ✅ Enviado correctamente a Slack #team-channel-1 [MYDEFAULT/MIORG]
@@ -455,21 +455,21 @@ Si el subdominio de Slack no está configurado (el mensaje de Telegram se envía
 ...
 ```
 
-### `python noctools_alerts.py test --slack "mensaje de prueba" "CXXXXXXXXX" "MYDEFAULT"`
+### `python noctools_alerts.py test --slack "test message" "CXXXXXXXXX" "MYDEFAULT"`
 
 ```
 Enviando TEST Message al canal 'team-channel-1' en workspace 'MYDEFAULT'
 ✅ Mensaje de TEST enviado correctamente
 ```
 
-### `python noctools_alerts.py test --telegram "mensaje de prueba" "-1001234567890"`
+### `python noctools_alerts.py test --telegram "test message" "-1001234567890"`
 
 ```
 Enviando TEST Message al grupo 'noc_alerts' en Telegram
 ✅ Mensaje de TEST enviado correctamente
 ```
 
-### `alerts.log` — ejemplo de entradas generadas por el parámetro `log`
+### `alerts.log` — example entries generated by the `log` parameter
 
 ```
 NOC-000001 | Nagios NR | Example Host [PROD] | example-service --> Se escala via slack con team-channel-1.
@@ -477,12 +477,12 @@ NOC-000002 | Nagios NR | Example Host 2 [PROD] | example-service-2 --> Se escala
 NOC-000003 | Nagios NR | Example Host 3 [PROD] | example-service-3 --> Se escala via slack con team-channel-3.
 ```
 
-### Ejemplo de mensaje en Slack
+### Example Slack message
 
-**Mensaje principal (canal):**
+**Main message (channel):**
 > 🔴 Alerta example-service
 
-**Hilo:**
+**Thread:**
 > Estimados, buenas noches, los molesto porque vemos alertada la app **example-service** con el siguiente error.
 >
 > **Critical Alert Events:**
@@ -494,7 +494,7 @@ NOC-000003 | Nagios NR | Example Host 3 [PROD] | example-service-3 --> Se escala
 > - ❌ Errors
 > - 🚨 Issues
 
-### Ejemplo de mensaje en Telegram
+### Example Telegram message
 
 > **🔴 Alerta example-service**
 >
