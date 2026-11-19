@@ -386,7 +386,7 @@ def build_thread_blocks(name, description, jira_ticket, jira_url, nr_link, error
     """Construye los bloques del hilo con formato profesional para NOC."""
     blocks = []
 
-    desc_text = f"*Critical Alert Events:*\n{description}" if description else "*Critical Alert Events:*\nNo disponible"
+    desc_text = f"*Critical Alert Events:*\n{description}" if description else "*Critical Alert Events:*\n⚠️ Sin eventos registrados. Validar en New Relic."
     greeting_part = f"{greeting}, " if greeting else ""
     intro = f"Estimados, {greeting_part}los molesto porque vemos alertada la app *{name}* con el siguiente error:\n\n{desc_text}"
     blocks.append({
@@ -506,7 +506,7 @@ def build_telegram_message(name, description, jira_ticket, jira_url, nr_link, er
         lines.append(description)
     else:
         lines.append("*Critical Alert Events:*")
-        lines.append("No disponible")
+        lines.append("⚠️ Sin eventos registrados. Validar en New Relic.")
     lines.append("")
     lines.append("*Links:*")
     if jira_url:
@@ -857,6 +857,9 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
         if description:
             print("*Critical Alert Events:*")
             print(description)
+        else:
+            print("*Critical Alert Events:*")
+            print("⚠️ Sin eventos registrados. Validar en New Relic.")
         print()
         print("*Links:*")
         if jira_url:
@@ -883,6 +886,9 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
                 org_display = organizacion or "(vacío)"
                 tag = f"[{ws_display}/{org_display}]"
 
+                if not description:
+                    print("⚠️ Critical Alert Events vacío. Enviando con placeholder. Validar en New Relic.")
+
                 # Validar datos requeridos antes de enviar
                 missing = []
                 if not name:
@@ -895,8 +901,6 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
                     missing.append("workspace u organización")
                 if not jira_url:
                     missing.append("Ticket Jira")
-                if not description:
-                    missing.append("Critical Alert Events")
                 if not nr_link:
                     missing.append("App Overview link")
                 if not errors_link:

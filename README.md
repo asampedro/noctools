@@ -1,6 +1,6 @@
-# NOC Alerts Tool
+[English](README.md) | [Español](README.es.md)
 
-> 🌐 [Español](README_ES.md)
+# NOC Alerts Tool
 
 ## Description
 
@@ -224,11 +224,12 @@ Before sending a message to Slack, the script validates that the following are p
 - Service name
 - Complete channel (name, id, workspace or organization)
 - Jira ticket
-- Critical Alert Events (incident description)
 - Links: App Overview, Errors, Issues
 - Slack Bot Token
 
 If anything is missing, it does not send to Slack or Telegram and details which fields are missing.
+
+> ⚠️ If Critical Alert Events are empty, the message is still sent with the placeholder `⚠️ Sin eventos registrados. Validar en New Relic.` and a warning is shown in the console.
 
 Slack delivery is considered successful only when both the main message and the thread are sent successfully. If either fails, Telegram is not sent.
 
