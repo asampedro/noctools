@@ -1,4 +1,4 @@
-[English](README.md) | [Español](README.es.md)
+🌐 [Español](README_ES.md)
 
 # NOC Alerts Tool
 
