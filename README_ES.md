@@ -162,12 +162,15 @@ new-service,new-team-channel,CXXXXXXXXX,NEWWS,OTHERORG,
 | Parámetro | Descripción | Compatible con |
 |---|---|---|
 | `showack` | Muestra alarmas con acknowledged | `send` |
-| `send` | Envía mensajes por Slack (siempre) y Telegram (si está en horario) | `showack`, `log` |
+| `send` | Envía mensajes por Slack (siempre) y Telegram (si está en horario) | `showack`, `log`, `jira` |
+| `jira` | Agrega un comentario de escalamiento al ticket de Jira después de enviar por Slack | `send` |
 | `log` | Registra escalados en alerts.log | `send` |
 
 > ⚠️ El parámetro `log` no puede usarse junto con `showack`.
 
 > En modo `send`, Slack envía siempre sin restricción horaria. Telegram envía solo si el envío a Slack fue exitoso (mensaje principal + hilo), el servicio tiene `telegram_group_id` configurado en el CSV y la hora actual está dentro del rango `TELEGRAM_START_HOUR`-`TELEGRAM_END_HOUR`.
+
+> El parámetro `jira` agrega un comentario automático al ticket de Jira después de un envío exitoso por Slack. El texto del comentario es `🤖 Se escala via Slack [& Telegram] a #canal — fecha hora`. Requiere `JIRA_USER`, `JIRA_PASSWORD` y `URL_JIRA_API` configurados en `.env`. Si el comentario de Jira falla, muestra un warning pero no bloquea Slack, Telegram ni el log.
 
 ### Modo test
 
@@ -215,6 +218,56 @@ En ambos casos el mensaje se envía.
 - Si falla: `❌ Error enviando mensaje: {error}` (Slack) o `❌ Error enviando mensaje a Telegram: {error}` (Telegram)
 
 > El modo `test` no consulta las URLs internas de Noctools, por lo que no requiere las URLs obligatorias del `.env`.
+
+---
+
+## Actualización de tickets de Jira (`updjira`)
+
+Modo standalone para operaciones con Jira: ver info de tickets, listar transiciones, agregar comentarios y aplicar transiciones.
+
+**Sintaxis:**
+
+```bash
+# Ver info del ticket (default)
+python noctools_alerts.py updjira "NOC-12345"
+
+# Listar transiciones disponibles (con ID y nombre)
+python noctools_alerts.py updjira "NOC-12345" --transitionlist
+
+# Agregar un comentario
+python noctools_alerts.py updjira "NOC-12345" --comment "texto del comentario"
+
+# Aplicar una transición (por nombre, case-insensitive)
+python noctools_alerts.py updjira "NOC-12345" --transition "In Progress"
+
+# Agregar comentario + aplicar transición (primero el comentario)
+python noctools_alerts.py updjira "NOC-12345" --comment "contexto" --transition "In Progress"
+```
+
+**Requisitos:**
+
+- `JIRA_USER`, `JIRA_PASSWORD` y `URL_JIRA_API` deben estar configurados en `.env`
+- El ticket debe tener formato válido (ej: `NOC-12345`)
+- Las transiciones se aplican por nombre (case-insensitive). Si el nombre no coincide con ninguna transición disponible, el script muestra las disponibles
+- El output de `--transitionlist` muestra tanto el ID como el nombre de cada transición
+
+**Salida de info del ticket (default):**
+
+```
+🎫 Ticket: NOC-317525
+   Estado:      In Progress
+   Resumen:     PSP API - High error rate
+   Tipo:        Alerta Monitoreo
+   Prioridad:   Normal
+   Proyecto:    NOC
+   Asignado a:  NOC Service
+   Reporter:    Usuario servicio NOC
+   Creado:      2026-11-20T16:07:46.000-0500
+   💬 Últimos comentarios (2 total):
+   ┌─ [2026-11-20 - Usuario servicio NOC]
+   │  Se escaló a Slack desde NocDuty
+   └──────────────────────────────────────────────
+```
 
 ---
 

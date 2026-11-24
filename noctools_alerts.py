@@ -89,6 +89,12 @@ TELEGRAM_END_HOUR   = int(os.getenv("TELEGRAM_END_HOUR", "0"))
 TELEGRAM_TIMEZONE   = os.getenv("TELEGRAM_TIMEZONE", "UTC")
 TELEGRAM_TIMEOUT    = int(os.getenv("TELEGRAM_TIMEOUT", "10"))
 
+# Jira API (para updjira y comentario automático con send jira)
+JIRA_USER     = os.getenv("JIRA_USER")
+JIRA_PASSWORD = os.getenv("JIRA_PASSWORD")
+URL_JIRA_API  = os.getenv("URL_JIRA_API")
+JIRA_TIMEOUT  = int(os.getenv("JIRA_TIMEOUT", "10"))
+
 HEADERS_ALERTS = {
     "accept": "*/*",
     "accept-language": ACCEPT_LANGUAGE,
@@ -534,6 +540,224 @@ def send_telegram_alert(name, description, jira_ticket, jira_url, nr_link, error
     return send_telegram_message(telegram_group_id, message)
 
 
+
+# --- JIRA API ---
+
+def validate_jira_env():
+    """Valida que las variables de Jira estén configuradas en .env.
+    Devuelve True si todo está OK, False si falta algo."""
+    missing = []
+    if not JIRA_USER:
+        missing.append("JIRA_USER")
+    if not JIRA_PASSWORD:
+        missing.append("JIRA_PASSWORD")
+    if not URL_JIRA_API:
+        missing.append("URL_JIRA_API")
+    if missing:
+        print("❌ Falta configuración de Jira en .env:")
+        for name in missing:
+            print(f"   - {name}")
+        return False
+    return True
+
+
+def is_valid_ticket_format(ticket):
+    """Valida que el ticket tenga formato de Jira (ej: NOC-12345).
+    Devuelve True si es válido, False si no."""
+    import re as _re
+    return bool(_re.match(r'^[A-Z]+-\d+$', ticket))
+
+
+def _jira_request(method, endpoint, payload=None):
+    """Hace un request a la API de Jira con autenticación basic.
+    Devuelve (response_data, status_code, error_message).
+    response_data es un dict si la respuesta es JSON válida, None si no."""
+    import requests as _requests
+    url = f"{URL_JIRA_API}/rest/api/2/{endpoint}"
+    try:
+        if method == "GET":
+            r = _requests.get(
+                url,
+                auth=(_requests.auth.HTTPBasicAuth(JIRA_USER, JIRA_PASSWORD)),
+                headers={"Accept": "application/json"},
+                timeout=JIRA_TIMEOUT
+            )
+        elif method == "POST":
+            r = _requests.post(
+                url,
+                auth=(_requests.auth.HTTPBasicAuth(JIRA_USER, JIRA_PASSWORD)),
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                json=payload,
+                timeout=JIRA_TIMEOUT
+            )
+        else:
+            return None, 0, f"Método no soportado: {method}"
+
+        if r.status_code == 200:
+            try:
+                return r.json(), r.status_code, None
+            except ValueError:
+                return None, r.status_code, "Respuesta no es JSON válido"
+        else:
+            try:
+                error_data = r.json()
+                error_msg = error_data.get("errorMessages", [f"HTTP {r.status_code}"])
+                if isinstance(error_msg, list) and len(error_msg) > 0:
+                    error_msg = error_msg[0]
+                return None, r.status_code, error_msg
+            except ValueError:
+                return None, r.status_code, f"HTTP {r.status_code}"
+    except _requests.exceptions.RequestException as e:
+        return None, 0, str(e)
+
+
+def jira_get_issue(ticket):
+    """Obtiene la info de un ticket de Jira.
+    Solo pide los campos necesarios para no traer 400+ custom fields.
+    Devuelve (issue_data, error_message)."""
+    fields = "summary,status,assignee,reporter,created,comment,issuetype,project,priority"
+    data, code, error = _jira_request("GET", f"issue/{ticket}?fields={fields}")
+    if error:
+        if code == 404:
+            return None, f"Ticket {ticket} no encontrado"
+        elif code == 401:
+            return None, "Error de autenticación. Verificá JIRA_USER y JIRA_PASSWORD"
+        elif code == 403:
+            return None, f"Sin permisos para ver el ticket {ticket}"
+        return None, error
+    return data, None
+
+
+def jira_get_transitions(ticket):
+    """Obtiene las transiciones disponibles para un ticket.
+    Devuelve (transitions_data, error_message)."""
+    data, code, error = _jira_request("GET", f"issue/{ticket}/transitions")
+    if error:
+        if code == 404:
+            return None, f"Ticket {ticket} no encontrado"
+        elif code == 401:
+            return None, "Error de autenticación. Verificá JIRA_USER y JIRA_PASSWORD"
+        return None, error
+    return data, None
+
+
+def jira_apply_transition(ticket, transition_name):
+    """Aplica una transición a un ticket por nombre (case-insensitive).
+    Busca el ID de la transición primero, luego la aplica.
+    Devuelve (True, None) si es exitoso, (False, error_message) si falla."""
+    transitions_data, error = jira_get_transitions(ticket)
+    if error:
+        return False, error
+
+    transitions = transitions_data.get("transitions", [])
+    if not transitions:
+        return False, f"No hay transiciones disponibles para {ticket}"
+
+    # Buscar por nombre case-insensitive
+    target = None
+    for t in transitions:
+        if t.get("name", "").lower() == transition_name.lower():
+            target = t
+            break
+
+    if not target:
+        available = ", ".join(t.get("name", "") for t in transitions)
+        return False, f"Transición '{transition_name}' no encontrada. Disponibles: {available}"
+
+    payload = {"transition": {"id": target["id"]}}
+    data, code, error = _jira_request("POST", f"issue/{ticket}/transitions", payload)
+    if error:
+        return False, error
+    return True, None
+
+
+def jira_add_comment(ticket, comment_text):
+    """Agrega un comentario a un ticket de Jira.
+    Devuelve (True, None) si es exitoso, (False, error_message) si falla."""
+    payload = {"body": comment_text}
+    data, code, error = _jira_request("POST", f"issue/{ticket}/comment", payload)
+    if error:
+        if code == 404:
+            return False, f"Ticket {ticket} no encontrado"
+        elif code == 401:
+            return False, "Error de autenticación. Verificá JIRA_USER y JIRA_PASSWORD"
+        elif code == 403:
+            return False, f"Sin permisos para comentar en {ticket}"
+        return False, error
+    return True, None
+
+
+def display_jira_issue(ticket):
+    """Muestra la info de un ticket en formato legible."""
+    issue_data, error = jira_get_issue(ticket)
+    if error:
+        print(f"❌ {error}")
+        return
+
+    fields = issue_data.get("fields", {})
+    status = fields.get("status", {}).get("name", "—")
+    summary = fields.get("summary", "—")
+    assignee = fields.get("assignee", {})
+    assignee_name = assignee.get("displayName", "Sin asignar") if assignee else "Sin asignar"
+    reporter = fields.get("reporter", {})
+    reporter_name = reporter.get("displayName", "—") if reporter else "—"
+    created = fields.get("created", "—")
+    project = fields.get("project", {}).get("key", "—")
+    priority = fields.get("priority", {}).get("name", "—") if fields.get("priority") else "—"
+    issuetype = fields.get("issuetype", {}).get("name", "—") if fields.get("issuetype") else "—"
+
+    print(f"🎫 Ticket: {ticket}")
+    print(f"   Estado:      {status}")
+    print(f"   Resumen:     {summary}")
+    print(f"   Tipo:        {issuetype}")
+    print(f"   Prioridad:   {priority}")
+    print(f"   Proyecto:    {project}")
+    print(f"   Asignado a:  {assignee_name}")
+    print(f"   Reporter:    {reporter_name}")
+    print(f"   Creado:      {created}")
+
+    # Comentarios (últimos 3)
+    comments = fields.get("comment", {}).get("comments", [])
+    if comments:
+        print(f"   💬 Últimos comentarios ({len(comments)} total):")
+        for c in comments[-3:]:
+            author = c.get("author", {}).get("displayName", "—")
+            body = c.get("body", "")
+            date = c.get("created", "—")[:10]
+            # Truncar comentario largo
+            if len(body) > 100:
+                body = body[:100] + "..."
+            print(f"   ┌─ [{date} - {author}]")
+            print(f"   │  {body}")
+        print(f"   └──────────────────────────────────────────────")
+    else:
+        print(f"   💬 Sin comentarios")
+
+    print()
+    print(f"   Para ver transiciones:  python noctools_alerts.py updjira {ticket} --transitionlist")
+    print(f"   Para agregar comentario: python noctools_alerts.py updjira {ticket} --comment \"texto\"")
+    print(f"   Para aplicar transición:  python noctools_alerts.py updjira {ticket} --transition \"nombre\"")
+
+
+def display_jira_transitions(ticket):
+    """Muestra las transiciones disponibles para un ticket (ID y nombre)."""
+    transitions_data, error = jira_get_transitions(ticket)
+    if error:
+        print(f"❌ {error}")
+        return
+
+    transitions = transitions_data.get("transitions", [])
+    if not transitions:
+        print(f"⚠️ No hay transiciones disponibles para {ticket}")
+        return
+
+    print(f"🎫 Transiciones disponibles para {ticket}:")
+    for t in transitions:
+        print(f"   [{t['id']}] {t['name']}")
+
+
+# --- FIN JIRA API ---
+
 # --- CANAL MAP ---
 
 def load_channel_map():
@@ -670,9 +894,11 @@ def parse_alerts(data):
 
 
 # --- LOG ROUTINE (removable) ---
-def write_log(ticket, host, service, channel_nombre):
-    """Escribe una entrada en alerts.log para cada servicio escalado."""
-    entry = f"{ticket} | Nagios NR | {host} | {service} --> Se escala via slack con {channel_nombre}.\n"
+def write_log(ticket, host, service, channel_nombre, telegram_sent=False):
+    """Escribe una entrada en alerts.log para cada servicio escalado.
+    Registra si se escaló via Slack o via Slack & Telegram."""
+    via = "Slack & Telegram" if telegram_sent else "Slack"
+    entry = f"{ticket} | Nagios NR | {host} | {service} --> Se escala via {via} con {channel_nombre}.\n"
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(entry)
     print(f"📝 Logueado: {entry.strip()}")
@@ -771,10 +997,107 @@ def run_test_mode(args):
             print("✅ Mensaje de TEST enviado correctamente")
 
 
+
+# --- UPDJIRA MODE ---
+
+def run_updjira_mode(args):
+    """Modo UPDJIRA: operaciones con tickets de Jira.
+
+    Uso:
+      python noctools_alerts.py updjira "TICKET"                                 (info del ticket)
+      python noctools_alerts.py updjira "TICKET" --transitionlist                (listar transiciones)
+      python noctools_alerts.py updjira "TICKET" --comment "texto"               (agregar comentario)
+      python noctools_alerts.py updjira "TICKET" --transition "nombre"           (aplicar transición)
+      python noctools_alerts.py updjira "TICKET" --comment "texto" --transition "nombre"
+    """
+    # Validar configuración de Jira
+    if not validate_jira_env():
+        return
+
+    # Parsear argumentos
+    filtered_args = []
+    comment_text = None
+    transition_name = None
+    show_transitions = False
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--transitionlist":
+            show_transitions = True
+        elif arg == "--comment":
+            if i + 1 < len(args):
+                comment_text = args[i + 1]
+                i += 1
+            else:
+                print('❌ --comment requiere un texto: --comment "texto del comentario"')
+                return
+        elif arg == "--transition":
+            if i + 1 < len(args):
+                transition_name = args[i + 1]
+                i += 1
+            else:
+                print('❌ --transition requiere un nombre: --transition "nombre de la transición"')
+                return
+        else:
+            filtered_args.append(arg)
+        i += 1
+
+    # Extraer el ticket (primera posición después de "updjira")
+    ticket_args = [a for a in filtered_args if a.lower() != "updjira" and not a.startswith("--")]
+    if not ticket_args:
+        print("Uso: python noctools_alerts.py updjira \"TICKET\" [flags]")
+        print('      Info del ticket:        python noctools_alerts.py updjira "NOC-12345"')
+        print('      Listar transiciones:    python noctools_alerts.py updjira "NOC-12345" --transitionlist')
+        print('      Agregar comentario:     python noctools_alerts.py updjira "NOC-12345" --comment "texto"')
+        print('      Aplicar transición:     python noctools_alerts.py updjira "NOC-12345" --transition "nombre"')
+        print('      Comentario + transición: python noctools_alerts.py updjira "NOC-12345" --comment "texto" --transition "nombre"')
+        return
+
+    ticket = ticket_args[0]
+
+    # Validar formato del ticket
+    if not is_valid_ticket_format(ticket):
+        print(f"❌ Formato de ticket inválido: '{ticket}'")
+        print("   Debe tener el formato PROYECTO-NUMERO (ej: NOC-12345)")
+        return
+
+    # Ejecutar según flags
+    if show_transitions:
+        display_jira_transitions(ticket)
+        return
+
+    # Si hay comentario o transición, ejecutarlas
+    if comment_text or transition_name:
+        if comment_text:
+            print(f"📤 Agregando comentario a {ticket}...")
+            ok, error = jira_add_comment(ticket, comment_text)
+            if ok:
+                print(f"✅ Comentario agregado a {ticket}")
+            else:
+                print(f"❌ Error al agregar comentario: {error}")
+                return
+
+        if transition_name:
+            print(f"📤 Aplicando transición '{transition_name}' a {ticket}...")
+            ok, error = jira_apply_transition(ticket, transition_name)
+            if ok:
+                print(f"✅ Transición '{transition_name}' aplicada a {ticket}")
+            else:
+                print(f"❌ Error al aplicar transición: {error}")
+                return
+
+    # Default: mostrar info del ticket
+    if not comment_text and not transition_name and not show_transitions:
+        display_jira_issue(ticket)
+
+
+# --- FIN UPDJIRA MODE ---
+
 # --- ALERTAS ---
 
 def generate_slack_messages(services, ticket_map, channel_map, send=False, show_ack=False, log=False,
-                            fallback_failed=False):
+                            fallback_failed=False, jira_comment=False):
     if not services:
         print("✅ No hay alarmas CRITICAL sin acknowledged." if not show_ack else "✅ No hay alarmas CRITICAL activas.")
         return
@@ -873,6 +1196,7 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
 
         if send:
             send_success = False
+            tg_ok = False
             if not channel:
                 print(f'❌ Error al enviar mensaje a {name}, "servicio no encontrado en Database"')
             else:
@@ -941,6 +1265,21 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
                     else:
                         print(f"⚠️  Telegram no enviado: el envío a Slack falló.")
 
+                    # --- Comentario en Jira (solo si el envío a Slack fue exitoso) ---
+                    if send_success and jira_comment:
+                        if is_valid_ticket_format(ticket):
+                            via = "Slack & Telegram" if tg_ok else "Slack"
+                            timestamp = datetime.now().strftime("%d/%m/%Y %H:%M")
+                            comment_text = f"🤖 Se escala via {via} a {channel_nombre} — {timestamp}"
+                            print(f"📤 Agregando comentario en Jira {ticket}...")
+                            jira_ok, jira_err = jira_add_comment(ticket, comment_text)
+                            if jira_ok:
+                                print(f"✅ Comentario agregado en Jira {ticket}")
+                            else:
+                                print(f"⚠️  No se pudo agregar comentario en Jira {ticket}: {jira_err}")
+                        else:
+                            print(f"⚠️  No se agrega comentario en Jira: ticket inválido o no creado ({ticket})")
+
         print()
         if log:
             if send and not send_success:
@@ -951,7 +1290,7 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
                 print("⚠️ Error al realizar log, falta: Ticket Jira.")
             else:
                 host = svc.get("host_alias") or svc.get("host_name")
-                write_log(ticket, host, appname or svc_description or name, channel["nombre"])
+                write_log(ticket, host, appname or svc_description or name, channel["nombre"], telegram_sent=tg_ok)
         else:
             print("📝 Modo log inactivo")
 
@@ -970,10 +1309,21 @@ def main():
         run_test_mode(sys.argv[1:])
         return
 
+    # --- Modo UPDJIRA ---
+    if "updjira" in args:
+        run_updjira_mode(sys.argv[1:])
+        return
+
     # --- Modo normal ---
     show_ack = "showack" in args
     send     = "send" in args
+    jira_comment = "jira" in args and send
     log      = "log" in args and not show_ack
+
+    # Si se usa el parámetro jira, validar configuración de Jira
+    if jira_comment and not validate_jira_env():
+        print("   El parámetro 'jira' requiere configuración de Jira en .env.")
+        sys.exit(1)
 
     if "log" in args and show_ack:
         print("⚠️  El parámetro 'log' no puede usarse junto con 'showack'. No se loguearán entradas.")
@@ -1020,7 +1370,7 @@ def main():
         print("🎫 Tickets obtenidos del JSON de alertas.")
 
     generate_slack_messages(critical_services, ticket_map, channel_map, send=send, show_ack=show_ack, log=log,
-                            fallback_failed=fallback_failed)
+                            fallback_failed=fallback_failed, jira_comment=jira_comment)
 
 
 if __name__ == "__main__":
