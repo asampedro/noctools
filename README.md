@@ -244,6 +244,9 @@ python noctools_alerts.py updjira "NOC-12345" --transition "In Progress"
 
 # Add comment + apply transition (comment goes first)
 python noctools_alerts.py updjira "NOC-12345" --comment "context" --transition "In Progress"
+
+# Show all comments (default shows last 3)
+python noctools_alerts.py updjira "NOC-12345" --allcomments
 ```
 
 **Requirements:**
@@ -265,7 +268,7 @@ python noctools_alerts.py updjira "NOC-12345" --comment "context" --transition "
    Asignado a:  NOC Service
    Reporter:    Usuario servicio NOC
    Creado:      2026-11-20T16:07:46.000-0500
-   💬 Últimos comentarios (2 total):
+   💬 Últimos comentarios (2 total — últimos 3):
    ┌─ [2026-11-20 - Usuario servicio NOC]
    │  Se escaló a Slack desde NocDuty
    └──────────────────────────────────────────────

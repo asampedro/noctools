@@ -692,7 +692,7 @@ def jira_add_comment(ticket, comment_text):
     return True, None
 
 
-def display_jira_issue(ticket):
+def display_jira_issue(ticket, show_all_comments=False):
     """Muestra la info de un ticket en formato legible."""
     issue_data, error = jira_get_issue(ticket)
     if error:
@@ -721,11 +721,16 @@ def display_jira_issue(ticket):
     print(f"   Reporter:    {reporter_name}")
     print(f"   Creado:      {created}")
 
-    # Comentarios (últimos 3)
+    # Comentarios (últimos 3, o todos con --allcomments)
     comments = fields.get("comment", {}).get("comments", [])
     if comments:
-        print(f"   💬 Últimos comentarios ({len(comments)} total):")
-        for c in comments[-3:]:
+        if show_all_comments:
+            print(f"   💬 Comentarios ({len(comments)} total — todos):")
+            comments_to_show = comments
+        else:
+            print(f"   💬 Últimos comentarios ({len(comments)} total — últimos 3):")
+            comments_to_show = comments[-3:]
+        for c in comments_to_show:
             author = c.get("author", {}).get("displayName", "—")
             body = c.get("body", "")
             date = c.get("created", "—")[:10]
@@ -734,7 +739,7 @@ def display_jira_issue(ticket):
                 body = body[:100] + "..."
             print(f"   ┌─ [{date} - {author}]")
             print(f"   │  {body}")
-        print(f"   └──────────────────────────────────────────────")
+            print(f"   └──────────────────────────────────────────────")
     else:
         print(f"   💬 Sin comentarios")
 
@@ -742,6 +747,7 @@ def display_jira_issue(ticket):
     print(f"   Para ver transiciones:  python noctools_alerts.py updjira {ticket} --transitionlist")
     print(f"   Para agregar comentario: python noctools_alerts.py updjira {ticket} --comment \"texto\"")
     print(f"   Para aplicar transición:  python noctools_alerts.py updjira {ticket} --transition \"nombre\"")
+    print(f"   Para ver todos los comentarios: python noctools_alerts.py updjira {ticket} --allcomments")
 
 
 def display_jira_transitions(ticket):
@@ -1024,6 +1030,7 @@ def run_updjira_mode(args):
     comment_text = None
     transition_name = None
     show_transitions = False
+    show_all_comments = False
 
     i = 0
     while i < len(args):
@@ -1057,6 +1064,7 @@ def run_updjira_mode(args):
         print('      Agregar comentario:     python noctools_alerts.py updjira "NOC-12345" --comment "texto"')
         print('      Aplicar transición:     python noctools_alerts.py updjira "NOC-12345" --transition "nombre"')
         print('      Comentario + transición: python noctools_alerts.py updjira "NOC-12345" --comment "texto" --transition "nombre"')
+        print('      Ver todos los comentarios: python noctools_alerts.py updjira "NOC-12345" --allcomments')
         return
 
     ticket = ticket_args[0]
@@ -1094,7 +1102,7 @@ def run_updjira_mode(args):
 
     # Default: mostrar info del ticket
     if not comment_text and not transition_name and not show_transitions:
-        display_jira_issue(ticket)
+        display_jira_issue(ticket, show_all_comments=show_all_comments)
 
 
 # --- FIN UPDJIRA MODE ---
