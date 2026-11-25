@@ -1231,6 +1231,11 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
             print(f"• 🚨 Issues: {issues_link}")
 
         tg_ok = False
+        if not send and channel:
+            # Escalamiento manual: inferir si el operador también envió a Telegram
+            # (mismo criterio que el envío automático: grupo configurado + horario de Telegram)
+            if channel.get("telegram_group_id") and is_telegram_in_schedule():
+                tg_ok = True
         if send:
             send_success = False
             if not channel:
