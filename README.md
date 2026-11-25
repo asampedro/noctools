@@ -233,6 +233,9 @@ Standalone mode for Jira operations: read ticket info, list transitions, add com
 # Show ticket info (default)
 python noctools_alerts.py updjira "NOC-12345"
 
+# Show info for multiple tickets
+python noctools_alerts.py updjira "NOC-12345" "NOC-12346"
+
 # List available transitions (with ID and name)
 python noctools_alerts.py updjira "NOC-12345" --transitionlist
 

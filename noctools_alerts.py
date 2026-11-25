@@ -743,11 +743,7 @@ def display_jira_issue(ticket, show_all_comments=False):
     else:
         print(f"   💬 Sin comentarios")
 
-    print()
-    print(f"   Para ver transiciones:  python noctools_alerts.py updjira {ticket} --transitionlist")
-    print(f"   Para agregar comentario: python noctools_alerts.py updjira {ticket} --comment \"texto\"")
-    print(f"   Para aplicar transición:  python noctools_alerts.py updjira {ticket} --transition \"nombre\"")
-    print(f"   Para ver todos los comentarios: python noctools_alerts.py updjira {ticket} --allcomments")
+
 
 
 def display_jira_transitions(ticket):
@@ -1013,10 +1009,14 @@ def run_test_mode(args):
 
 def run_updjira_mode(args):
     """Modo UPDJIRA: operaciones con tickets de Jira.
+    Soporta uno o múltiples tickets para info y transiciones.
+    --comment y --transition solo funcionan con un ticket a la vez.
 
     Uso:
       python noctools_alerts.py updjira "TICKET"                                 (info del ticket)
+      python noctools_alerts.py updjira "TICKET" "TICKET2"                       (info de varios tickets)
       python noctools_alerts.py updjira "TICKET" --transitionlist                (listar transiciones)
+      python noctools_alerts.py updjira "TICKET" --allcomments                  (todos los comentarios)
       python noctools_alerts.py updjira "TICKET" --comment "texto"               (agregar comentario)
       python noctools_alerts.py updjira "TICKET" --transition "nombre"           (aplicar transición)
       python noctools_alerts.py updjira "TICKET" --comment "texto" --transition "nombre"
@@ -1037,6 +1037,8 @@ def run_updjira_mode(args):
         arg = args[i]
         if arg == "--transitionlist":
             show_transitions = True
+        elif arg == "--allcomments":
+            show_all_comments = True
         elif arg == "--comment":
             if i + 1 < len(args):
                 comment_text = args[i + 1]
@@ -1055,11 +1057,12 @@ def run_updjira_mode(args):
             filtered_args.append(arg)
         i += 1
 
-    # Extraer el ticket (primera posición después de "updjira")
+    # Extraer los tickets (todos los que no sean flags ni "updjira")
     ticket_args = [a for a in filtered_args if a.lower() != "updjira" and not a.startswith("--")]
     if not ticket_args:
-        print("Uso: python noctools_alerts.py updjira \"TICKET\" [flags]")
+        print("Uso: python noctools_alerts.py updjira \"TICKET\" [\"TICKET2\" ...] [flags]")
         print('      Info del ticket:        python noctools_alerts.py updjira "NOC-12345"')
+        print('      Info de varios tickets: python noctools_alerts.py updjira "NOC-12345" "NOC-12346"')
         print('      Listar transiciones:    python noctools_alerts.py updjira "NOC-12345" --transitionlist')
         print('      Agregar comentario:     python noctools_alerts.py updjira "NOC-12345" --comment "texto"')
         print('      Aplicar transición:     python noctools_alerts.py updjira "NOC-12345" --transition "nombre"')
@@ -1067,21 +1070,29 @@ def run_updjira_mode(args):
         print('      Ver todos los comentarios: python noctools_alerts.py updjira "NOC-12345" --allcomments')
         return
 
-    ticket = ticket_args[0]
-
-    # Validar formato del ticket
-    if not is_valid_ticket_format(ticket):
-        print(f"❌ Formato de ticket inválido: '{ticket}'")
+    # Validar formato de todos los tickets
+    invalid_tickets = [t for t in ticket_args if not is_valid_ticket_format(t)]
+    if invalid_tickets:
+        print(f"❌ Formato de ticket inválido: {', '.join(invalid_tickets)}")
         print("   Debe tener el formato PROYECTO-NUMERO (ej: NOC-12345)")
+        return
+
+    # Si hay comentario o transición, solo se permiten con un único ticket
+    if (comment_text or transition_name) and len(ticket_args) > 1:
+        print("❌ --comment y --transition solo funcionan con un ticket a la vez")
         return
 
     # Ejecutar según flags
     if show_transitions:
-        display_jira_transitions(ticket)
+        for ticket in ticket_args:
+            if len(ticket_args) > 1:
+                print(f"\n{'─'*60}")
+            display_jira_transitions(ticket)
         return
 
-    # Si hay comentario o transición, ejecutarlas
+    # Si hay comentario o transición (ticket único)
     if comment_text or transition_name:
+        ticket = ticket_args[0]
         if comment_text:
             print(f"📤 Agregando comentario a {ticket}...")
             ok, error = jira_add_comment(ticket, comment_text)
@@ -1100,9 +1111,19 @@ def run_updjira_mode(args):
                 print(f"❌ Error al aplicar transición: {error}")
                 return
 
-    # Default: mostrar info del ticket
+    # Default: mostrar info de todos los tickets
     if not comment_text and not transition_name and not show_transitions:
-        display_jira_issue(ticket, show_all_comments=show_all_comments)
+        for idx, ticket in enumerate(ticket_args):
+            if len(ticket_args) > 1 and idx > 0:
+                print(f"\n{'─'*60}")
+            display_jira_issue(ticket, show_all_comments=show_all_comments)
+        # Hints una sola vez, al final de todos los tickets
+        ref_ticket = ticket_args[0]
+        print()
+        print(f"   Para ver transiciones:  python noctools_alerts.py updjira {ref_ticket} --transitionlist")
+        print(f"   Para agregar comentario: python noctools_alerts.py updjira {ref_ticket} --comment \"texto\"")
+        print(f"   Para aplicar transición:  python noctools_alerts.py updjira {ref_ticket} --transition \"nombre\"")
+        print(f"   Para ver todos los comentarios: python noctools_alerts.py updjira {ref_ticket} --allcomments")
 
 
 # --- FIN UPDJIRA MODE ---

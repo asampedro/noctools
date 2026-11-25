@@ -233,6 +233,9 @@ Modo standalone para operaciones con Jira: ver info de tickets, listar transicio
 # Ver info del ticket (default)
 python noctools_alerts.py updjira "NOC-12345"
 
+# Ver info de varios tickets
+python noctools_alerts.py updjira "NOC-12345" "NOC-12346"
+
 # Listar transiciones disponibles (con ID y nombre)
 python noctools_alerts.py updjira "NOC-12345" --transitionlist
 
