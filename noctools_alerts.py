@@ -1194,9 +1194,9 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
         if issues_link:
             print(f"• 🚨 Issues: {issues_link}")
 
+        tg_ok = False
         if send:
             send_success = False
-            tg_ok = False
             if not channel:
                 print(f'❌ Error al enviar mensaje a {name}, "servicio no encontrado en Database"')
             else:
