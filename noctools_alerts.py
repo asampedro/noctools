@@ -598,7 +598,9 @@ def _jira_request(method, endpoint, payload=None):
         else:
             return None, 0, f"Método no soportado: {method}"
 
-        if r.status_code in (200, 201):
+        if r.status_code in (200, 201, 204):
+            if r.status_code == 204:
+                return {}, r.status_code, None  # 204 = éxito sin body (transiciones)
             try:
                 return r.json(), r.status_code, None
             except ValueError:
