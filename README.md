@@ -170,7 +170,9 @@ new-service,new-team-channel,CXXXXXXXXX,NEWWS,OTHERORG,
 
 > In `send` mode, Slack always sends without time restrictions. Telegram sends only if Slack delivery was successful (main message + thread), the service has `telegram_group_id` configured in the CSV, and the current time is within the `TELEGRAM_START_HOUR`-`TELEGRAM_END_HOUR` range.
 
-> The `jira` parameter adds an automatic comment to the Jira ticket after successful Slack delivery. The comment text is `🤖 Se escala via Slack [& Telegram] a #channel — date time`. It requires `JIRA_USER`, `JIRA_PASSWORD` and `URL_JIRA_API` configured in `.env`. If the Jira comment fails, it shows a warning but does not block Slack, Telegram or the log.
+> The `jira` parameter adds an automatic comment to the Jira ticket after successful Slack delivery. The comment text is `⚙ Se escala via Slack [& Telegram] a #channel — date time`.
+
+> ⚠️ Note: the comment uses `⚙` instead of an emoji because some Jira Server databases (MySQL utf8 without mb4) cannot store 4-byte Unicode characters (emojis). Characters like ⚙ (3 bytes) work correctly. Emojis in `--comment` may fail with a 500 error depending on the Jira database configuration. It requires `JIRA_USER`, `JIRA_PASSWORD` and `URL_JIRA_API` configured in `.env`. If the Jira comment fails, it shows a warning but does not block Slack, Telegram or the log.
 
 ### Test mode
 

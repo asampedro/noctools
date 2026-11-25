@@ -583,17 +583,22 @@ def _jira_request(method, endpoint, payload=None):
                 timeout=JIRA_TIMEOUT
             )
         elif method == "POST":
+            import json as _json
             r = _requests.post(
                 url,
                 auth=(_requests.auth.HTTPBasicAuth(JIRA_USER, JIRA_PASSWORD)),
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
-                json=payload,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json; charset=utf-8",
+                    "X-Atlassian-Token": "no-check"
+                },
+                data=_json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                 timeout=JIRA_TIMEOUT
             )
         else:
             return None, 0, f"Método no soportado: {method}"
 
-        if r.status_code == 200:
+        if r.status_code in (200, 201):
             try:
                 return r.json(), r.status_code, None
             except ValueError:
@@ -1266,11 +1271,12 @@ def generate_slack_messages(services, ticket_map, channel_map, send=False, show_
                         print(f"⚠️  Telegram no enviado: el envío a Slack falló.")
 
                     # --- Comentario en Jira (solo si el envío a Slack fue exitoso) ---
+                    # Nota: se usa ⚙ en lugar de 🤖 porque Jira no acepta emojis de 4 bytes (utf8 sin mb4)
                     if send_success and jira_comment:
                         if is_valid_ticket_format(ticket):
                             via = "Slack & Telegram" if tg_ok else "Slack"
                             timestamp = datetime.now().strftime("%d/%m/%Y %H:%M")
-                            comment_text = f"🤖 Se escala via {via} a {channel_nombre} — {timestamp}"
+                            comment_text = f"⚙ Se escala via {via} a {channel_nombre} — {timestamp}"
                             print(f"📤 Agregando comentario en Jira {ticket}...")
                             jira_ok, jira_err = jira_add_comment(ticket, comment_text)
                             if jira_ok:
