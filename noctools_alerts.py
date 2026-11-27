@@ -890,10 +890,20 @@ def extract_incident_description(long_plugin_output):
 
 
 def build_ticket_map(tickets_data):
+    """Construye un mapa {servicio: ticket} desde el response de NocDuty.
+    Formato confirmado: cada fila es un dict con keys
+    'connector', 'host', 'service', 'created', 'state', 'ticket', 'notified', 'closed', 'pk', 'can_close'.
+    Se mantiene soporte para formato list (row[2]=servicio, row[5]=ticket) por compatibilidad."""
     ticket_map = {}
     for row in tickets_data.get("data", []):
-        if len(row) >= 6 and row[2] and row[5]:
-            ticket_map[row[2].lower()] = row[5]
+        if isinstance(row, dict):
+            service = row.get("service")
+            ticket = row.get("ticket")
+            if service and ticket:
+                ticket_map[str(service).lower()] = ticket
+        elif isinstance(row, (list, tuple)):
+            if len(row) >= 6 and row[2] and row[5]:
+                ticket_map[row[2].lower()] = row[5]
     return ticket_map
 
 
